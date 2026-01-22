@@ -9,6 +9,7 @@ import (
 
 const (
 	FlagGzip FrameFlags = 1 << iota
+	FlagTLS  FrameFlags = 1 << iota
 )
 
 func NewServer(settings Settings) (*Server, error) {

@@ -1,6 +1,7 @@
 package TCPServer
 
 import (
+	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -8,6 +9,24 @@ import (
 )
 
 func (s *Server) handleFrame(id string, flags FrameFlags, payload []byte) {
+	conn, err := s.getConnectionWrapper(id)
+	if err != nil {
+		s.onErrorFunc(id, err)
+		return
+	}
+
+	if !conn.established {
+		if hasFlag(flags, FlagTLS) && s.settings.UseTLS {
+			conn.con = tls.Server(conn.con, s.tlsCfg)
+		} else if hasFlag(flags, FlagTLS) {
+			s.onErrorFunc(id, fmt.Errorf("TLS is not enabled on server side. Closing the connection."))
+			s.RemoveConnection(id)
+			return
+		}
+
+		s.setEstablished(id)
+	}
+
 	if hasFlag(flags, FlagGzip) {
 		data, err := gunzipFrame(payload, s.settings.MaxDecompressedBytes)
 		if err != nil {
