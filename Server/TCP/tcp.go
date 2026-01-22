@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -29,7 +30,9 @@ func NewServer(settings Settings) (*Server, error) {
 		listener = tls.NewListener(listener, config)
 	}
 
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.listener = listener
+
 	return s, nil
 }
 
@@ -83,11 +86,7 @@ func (s *Server) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for id, conn := range s.cons {
-		conn.con.Close()
-		delete(s.cons, id)
-	}
-
+	s.cancel()
 	return s.listener.Close()
 }
 

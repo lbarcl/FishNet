@@ -29,6 +29,7 @@ type Server struct {
 	listener net.Listener
 	cons     map[string]*Connection
 	mu       sync.Mutex
+	ctx      context.Context
 	cancel   context.CancelFunc
 
 	onDataFunc       func(id string, payload []byte)

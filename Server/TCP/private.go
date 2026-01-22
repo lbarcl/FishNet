@@ -24,7 +24,6 @@ func (s *Server) handleFrame(id string, flags FrameFlags, payload []byte) {
 }
 
 // [4 Bytes payload size][1 Byte flags][N Bytes payload]
-
 func (s *Server) handleConnection(id string) {
 	conn, err := s.GetConnection(id)
 	if err != nil {
@@ -32,18 +31,22 @@ func (s *Server) handleConnection(id string) {
 		return
 	}
 
+	// Centralized cleanup
 	defer func() {
-		conn.Close()
-		if conn != nil {
-			if err := conn.Close(); err != nil {
-				s.onErrorFunc(id, fmt.Errorf("Error closing connection: %v", err))
-			}
-		}
-
 		s.RemoveConnection(id)
-
 		if s.onDisconnectFunc != nil {
 			s.onDisconnectFunc(id)
+		}
+	}()
+
+	// Watcher with exit signal to prevent leaks
+	watcherDone := make(chan struct{})
+	defer close(watcherDone)
+	go func() {
+		select {
+		case <-s.ctx.Done():
+			s.RemoveConnection(id)
+		case <-watcherDone:
 		}
 	}()
 
@@ -52,30 +55,30 @@ func (s *Server) handleConnection(id string) {
 			_ = conn.SetReadDeadline(time.Now().Add(time.Duration(s.settings.Timeout) * time.Second))
 		}
 	}
-	setDeadline()
 
+	headerBuf := make([]byte, 5) // Allocated once outside the loop
 	for {
-		buf := make([]byte, 5)
-		_, err := io.ReadFull(conn, buf)
-		if err != nil {
-			s.onErrorFunc(id, err)
-			return
-		}
 		setDeadline()
 
-		payloadSize := binary.BigEndian.Uint32(buf[:4])
-		if payloadSize > s.settings.MaxFrameBytes {
-			err := fmt.Errorf("Payload size exceeds maximum allowed: %d", payloadSize)
-			s.onErrorFunc(id, err)
+		if _, err := io.ReadFull(conn, headerBuf); err != nil {
+			if s.ctx.Err() == nil {
+				s.onErrorFunc(id, err)
+			}
 			return
 		}
 
-		flags := FrameFlags(buf[4])
+		payloadSize := binary.BigEndian.Uint32(headerBuf[:4])
+		if payloadSize > s.settings.MaxFrameBytes {
+			s.onErrorFunc(id, fmt.Errorf("payload size %d exceeds max", payloadSize))
+			return
+		}
 
-		payload := make([]byte, payloadSize)
-		_, err = io.ReadFull(conn, payload)
-		if err != nil {
-			s.onErrorFunc(id, err)
+		flags := FrameFlags(headerBuf[4])
+		payload := make([]byte, payloadSize) // Consider sync.Pool for large payloads
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			if s.ctx.Err() == nil {
+				s.onErrorFunc(id, err)
+			}
 			return
 		}
 
