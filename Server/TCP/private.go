@@ -128,3 +128,24 @@ func (s *Server) sendUnlockTheID(id string) {
 		conn.wmu.Unlock()
 	}
 }
+
+func (s *Server) getConnectionWrapper(id string) (*Connection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	conn, ok := s.cons[id]
+	if !ok {
+		return nil, fmt.Errorf("Connection not found for ID: %s", id)
+	}
+
+	return conn, nil
+}
+
+func (s *Server) setEstablished(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if conn, ok := s.cons[id]; ok {
+		conn.established = true
+	}
+}
