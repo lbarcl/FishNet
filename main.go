@@ -1,7 +1,7 @@
 package main
 
 import (
-	tcp "fishnet/TCP"
+	tcp "fishnet/Server/TCP"
 	"fmt"
 	"net"
 )
@@ -15,13 +15,20 @@ func main() {
 		MaxFrameBytes:        1024 * 512,
 	}
 
-	tcpServer := tcp.NewServer(serverSettings)
-
-	tcpServer.OnConnect(func(id string) {
-		fmt.Println("New connection:", id)
-	})
+	tcpServer, err := tcp.NewServer(serverSettings)
+	if err != nil {
+		fmt.Println("Error creating server:", err)
+		return
+	}
 
 	for {
-		tcpServer.Update()
+		id, err := tcpServer.Accept()
+
+		if err != nil {
+			fmt.Println("Error accepting connection:", err)
+			continue
+		}
+
+		fmt.Println("Accepted connection:", id)
 	}
 }
