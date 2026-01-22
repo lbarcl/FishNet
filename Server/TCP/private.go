@@ -8,15 +8,6 @@ import (
 )
 
 func (s *Server) handleFrame(id string, flags FrameFlags, payload []byte) {
-	s.mu.Lock()
-	conn := s.cons[id]
-	s.mu.Unlock()
-
-	if conn == nil {
-		s.onErrorFunc(id, fmt.Errorf("Connection not found for ID: %s", id))
-		return
-	}
-
 	if hasFlag(flags, FlagGzip) {
 		data, err := gunzipFrame(payload, s.settings.MaxDecompressedBytes)
 		if err != nil {
@@ -35,25 +26,21 @@ func (s *Server) handleFrame(id string, flags FrameFlags, payload []byte) {
 // [4 Bytes payload size][1 Byte flags][N Bytes payload]
 
 func (s *Server) handleConnection(id string) {
-	s.mu.Lock()
-	conn := s.cons[id].con
-	s.mu.Unlock()
-
-	if conn == nil {
-		s.onErrorFunc(id, fmt.Errorf("Connection not found for ID: %s", id))
+	conn, err := s.GetConnection(id)
+	if err != nil {
+		s.onErrorFunc(id, err)
 		return
 	}
 
 	defer func() {
+		conn.Close()
 		if conn != nil {
 			if err := conn.Close(); err != nil {
 				s.onErrorFunc(id, fmt.Errorf("Error closing connection: %v", err))
 			}
 		}
 
-		s.mu.Lock()
-		delete(s.cons, id)
-		s.mu.Unlock()
+		s.RemoveConnection(id)
 
 		if s.onDisconnectFunc != nil {
 			s.onDisconnectFunc(id)
@@ -97,9 +84,9 @@ func (s *Server) handleConnection(id string) {
 }
 
 func (s *Server) sendFrame(id string, flags FrameFlags, payload []byte) error {
-	conn := s.cons[id].con
-	if conn == nil {
-		return fmt.Errorf("connection not found for ID: %s", id)
+	conn, err := s.GetConnection(id)
+	if err != nil {
+		return err
 	}
 
 	if len(payload) > int(s.settings.MaxFrameBytes) {
