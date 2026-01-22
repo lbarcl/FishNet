@@ -23,11 +23,12 @@ func NewServer(settings Settings) (*Server, error) {
 	}
 
 	if settings.UseTLS {
-		config := &tls.Config{
+		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{settings.Cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		listener = tls.NewListener(listener, config)
+
+		s.tlsCfg = tlsConfig
 	}
 
 	s.ctx, s.cancel = context.WithCancel(context.Background())

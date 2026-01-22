@@ -32,6 +32,7 @@ type Server struct {
 	mu       sync.Mutex
 	ctx      context.Context
 	cancel   context.CancelFunc
+	tlsCfg   *tls.Config
 
 	onDataFunc       func(id string, payload []byte)
 	onErrorFunc      func(id string, err error)
