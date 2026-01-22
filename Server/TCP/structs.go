@@ -10,7 +10,7 @@ import (
 type FrameFlags uint8
 
 type Connection struct {
-	con net.TCPConn
+	con net.Conn
 	wmu sync.Mutex
 }
 
@@ -26,7 +26,7 @@ type Settings struct {
 
 type Server struct {
 	settings Settings
-	listener *net.TCPListener
+	listener net.Listener
 	cons     map[string]*Connection
 	mu       sync.Mutex
 	cancel   context.CancelFunc

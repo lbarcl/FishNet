@@ -16,10 +16,7 @@ func NewServer(settings Settings) (*Server, error) {
 		cons:     make(map[string]*Connection),
 	}
 
-	var listener *net.TCPListener
-	var err error
-
-	listener, err = net.ListenTCP("TCP", &settings.Addr)
+	listener, err := net.Listen("TCP", settings.Addr.String())
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +26,7 @@ func NewServer(settings Settings) (*Server, error) {
 			Certificates: []tls.Certificate{settings.Cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		listener = tls.NewListener(listener, config).(*net.TCPListener)
+		listener = tls.NewListener(listener, config)
 	}
 
 	s.listener = listener
@@ -37,7 +34,7 @@ func NewServer(settings Settings) (*Server, error) {
 }
 
 func (s *Server) Accept() (string, error) {
-	conn, err := s.listener.AcceptTCP()
+	conn, err := s.listener.Accept()
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +85,7 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *Server) GetConnection(id string) (*net.TCPConn, error) {
+func (s *Server) GetConnection(id string) (net.Conn, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -97,10 +94,10 @@ func (s *Server) GetConnection(id string) (*net.TCPConn, error) {
 		return nil, fmt.Errorf("Connection not found for ID: %s", id)
 	}
 
-	return &conn.con, nil
+	return conn.con, nil
 }
 
-func (s *Server) SetConnection(conn *net.TCPConn) (string, error) {
+func (s *Server) SetConnection(conn net.Conn) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
