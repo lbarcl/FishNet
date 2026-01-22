@@ -54,13 +54,19 @@ func (s *Server) Send(id string, payload []byte) error {
 	if len(payload) > int(s.settings.ZipThreshold) {
 		flags |= FlagGzip
 
-		payload, err := gzipFrame(payload, s.settings.MaxFrameBytes)
+		gzipPayload, err := gzipFrame(payload, s.settings.MaxFrameBytes)
 		if err != nil {
 			return err
 		}
 
-		if err := s.sendFrame(id, flags, payload); err != nil {
-			return err
+		if len(gzipPayload) > len(payload) {
+			if err := s.sendFrame(id, flags, payload); err != nil {
+				return err
+			}
+		} else {
+			if err := s.sendFrame(id, flags, gzipPayload); err != nil {
+				return err
+			}
 		}
 
 		return nil
