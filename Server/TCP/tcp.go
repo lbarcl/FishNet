@@ -47,7 +47,10 @@ func (s *Server) Accept() (string, error) {
 		return "", err
 	}
 
-	s.onConnectFunc(id)
+	if s.onConnectFunc != nil {
+		s.onConnectFunc(id)
+	}
+
 	go s.handleConnection(id)
 	return id, nil
 }
