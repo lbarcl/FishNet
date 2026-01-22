@@ -3,30 +3,54 @@ package tcp
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math/rand"
+	"sync"
 )
+
+var writerPool = sync.Pool{
+	New: func() interface{} {
+		// Initialize with io.Discard as a placeholder
+		return gzip.NewWriter(io.Discard)
+	},
+}
+
+var readerPool = sync.Pool{
+	New: func() interface{} {
+		// Initialize with an empty reader placeholder
+		return new(gzip.Reader)
+	},
+}
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 func gunzipFrame(in []byte, maxOut uint32) ([]byte, error) {
 	if len(in) == 0 {
 		return nil, fmt.Errorf("empty gzip frame")
 	}
 
-	r, err := gzip.NewReader(bytes.NewReader(in))
-	if err != nil {
+	reader := readerPool.Get().(*gzip.Reader)
+	defer readerPool.Put(reader)
+
+	if err := reader.Reset(bytes.NewReader(in)); err != nil {
 		return nil, err
 	}
-	defer r.Close()
 
 	var out bytes.Buffer
-	if _, err := out.ReadFrom(io.LimitReader(r, int64(maxOut)+1)); err != nil {
+	if _, err := out.ReadFrom(io.LimitReader(reader, int64(maxOut)+1)); err != nil {
 		return nil, err
 	}
+
 	if uint32(out.Len()) > maxOut {
 		return nil, fmt.Errorf("gunzip overflow: decompressed=%d max=%d", out.Len(), maxOut)
 	}
+
 	return out.Bytes(), nil
 }
 
@@ -35,20 +59,27 @@ func gzipFrame(in []byte, maxOut uint32) ([]byte, error) {
 		return nil, fmt.Errorf("empty gzip frame")
 	}
 
-	var out bytes.Buffer
-	w := gzip.NewWriter(&out)
-	defer w.Close()
+	writer := writerPool.Get().(*gzip.Writer)
+	defer writerPool.Put(writer)
 
-	if _, err := w.Write(in); err != nil {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
+
+	writer.Reset(buf)
+	if _, err := writer.Write(in); err != nil {
 		return nil, err
 	}
-	if err := w.Flush(); err != nil {
+
+	if err := writer.Close(); err != nil {
 		return nil, err
 	}
-	if uint32(out.Len()) > maxOut {
-		return nil, fmt.Errorf("gzip overflow: compressed=%d max=%d", out.Len(), maxOut)
+
+	if uint32(buf.Len()) > maxOut {
+		return nil, fmt.Errorf("gzip overflow: compressed=%d max=%d", buf.Len(), maxOut)
 	}
-	return out.Bytes(), nil
+
+	return buf.Bytes(), nil
 }
 
 func newUID() (string, error) {
