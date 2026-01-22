@@ -105,11 +105,13 @@ func (s *Server) SetConnection(conn *net.TCPConn) (string, error) {
 	defer s.mu.Unlock()
 
 	id, _ := newUID()
-	if _, ok := s.cons[id]; !ok {
-		return "", fmt.Errorf("Connection not found for ID: %s", id)
+	for _, ok := s.cons[id]; ok; {
+		id, _ = newUID()
 	}
 
-	s.cons[id].con = *conn
+	s.cons[id] = &Connection{
+		con: conn,
+	}
 	return id, nil
 }
 
