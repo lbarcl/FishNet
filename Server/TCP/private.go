@@ -98,12 +98,30 @@ func (s *Server) sendFrame(id string, flags FrameFlags, payload []byte) error {
 	frame[4] = byte(flags)
 
 	copy(frame[5:], payload)
-	s.cons[id].wmu.Lock()
-	defer s.cons[id].wmu.Unlock()
+	s.sendLockTheID(id)
+	defer s.sendUnlockTheID(id)
 
 	if _, err := conn.Write(frame); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *Server) sendLockTheID(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if conn, ok := s.cons[id]; ok {
+		conn.wmu.Lock()
+	}
+}
+
+func (s *Server) sendUnlockTheID(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if conn, ok := s.cons[id]; ok {
+		conn.wmu.Unlock()
+	}
 }
