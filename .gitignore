@@ -1,32 +1,98 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
-*.exe
-*.exe~
+# Created by https://www.toptal.com/developers/gitignore/api/c,c++,cmake
+# Edit at https://www.toptal.com/developers/gitignore?templates=c,c++,cmake
+
+### C ###
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
 *.dll
 *.so
+*.so.*
 *.dylib
 
-# Test binary, built with `go test -c`
-*.test
-
-# Code coverage profiles and other test artifacts
+# Executables
+*.exe
 *.out
-coverage.*
-*.coverprofile
-profile.cov
+*.app
+*.i*86
+*.x86_64
+*.hex
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
 
-# Go workspace file
-go.work
-go.work.sum
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
 
-# env file
-.env
+### C++ ###
+# Prerequisites
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Compiled Object files
+*.slo
+
+# Precompiled Headers
+
+# Compiled Dynamic libraries
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+
+# Executables
+
+### CMake ###
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+.cache/
+build/
+
+### CMake Patch ###
+CMakeUserPresets.json
+
+# External projects
+*-prefix/
+
+# End of https://www.toptal.com/developers/gitignore/api/c,c++,cmake
