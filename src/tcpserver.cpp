@@ -1,5 +1,8 @@
 #include "tcpserver.hpp"
+#include "sock.h"
+#include <cstddef>
 #include <iostream>
+#include <winsock2.h>
 
 TCPServer::TCPServer(const char *host, u_short port, int max_connection, int backlog)
 {
@@ -38,4 +41,16 @@ TCPServer::TCPServer(const char *host, u_short port, int max_connection, int bac
   }
 
   std::cout << "TCP server listening on " << host << ":" << port << "\n";
+}
+
+int TCPServer::Accept() {
+     socket_t client = accept(sockid, NULL, NULL);
+     if (client < 0) {
+         std::cerr << "Accept failed:" << NET_ERR << std::endl;
+         return -1;
+     }
+
+
+     connections.push_back(client);
+    return 0;
 }
