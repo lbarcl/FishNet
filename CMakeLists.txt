@@ -9,7 +9,6 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS OFF)
 # FishNet library
 # -------------------------------
 add_library(fishnet SHARED
-    src/main.cpp
     src/tcpserver.cpp
 )
 
