@@ -10,11 +10,6 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-const (
-	FlagGzip FrameFlags = 1 << iota
-	FlagTLS  FrameFlags = 1 << iota
-)
-
 func NewServer(settings Settings) (*Server, error) {
 	s := &Server{
 		settings: settings,
@@ -63,11 +58,11 @@ func (s *Server) Accept() (string, error) {
 }
 
 func (s *Server) Send(id string, payload []byte) error {
-	var flags FrameFlags
+	var flags repo.FrameFlags
 	if len(payload) > int(s.settings.ZipThreshold) {
 		flags |= repo.FlagGzip
 
-		gzipPayload, err := repo.gzipFrame(payload, s.settings.MaxFrameBytes)
+		gzipPayload, err := repo.GzipFrame(payload, s.settings.MaxFrameBytes)
 		if err != nil {
 			return err
 		}
