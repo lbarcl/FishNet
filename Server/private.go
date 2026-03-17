@@ -21,9 +21,9 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 	}
 
 	if !conn.established {
-		if repo.HasFlag(flags, FlagTLS) && s.settings.UseTLS {
+		if repo.HasFlag(flags, repo.FlagTLS) && s.settings.UseTLS {
 			conn.con = tls.Server(conn.con, s.tlsCfg)
-		} else if repo.HasFlag(flags, FlagTLS) {
+		} else if repo.HasFlag(flags, repo.FlagTLS) {
 			s.onErrorFunc(id, fmt.Errorf("TLS is not enabled on server side. Closing the connection"))
 			s.RemoveConnection(id)
 			return
@@ -33,7 +33,7 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 	}
 
 	outData := payload.Bytes()
-	if repo.HasFlag(flags, FlagGzip) {
+	if repo.HasFlag(flags, repo.FlagGzip) {
 		decompressedPayload, err := repo.GunzipFrame(payload, s.settings.MaxDecompressedBytes, &s.bufferPool)
 		if err != nil {
 			s.onErrorFunc(id, fmt.Errorf("error gunzipping frame: %v", err))
