@@ -12,6 +12,23 @@ import (
 func (c *Client) handleFrame(flags repo.FrameFlags, payload *bytebufferpool.ByteBuffer) {
 	defer c.bufferPool.Put(payload)
 
+	outData := payload.Bytes()
+	if repo.HasFlag(flags, repo.FlagGzip) {
+		decompressedPayload, err := repo.GunzipFrame(payload, c.settings.MaxDecompressedBytes, &c.bufferPool)
+		if err != nil {
+			c.onErrorFunc(fmt.Errorf("error gunzipping frame: %v", err))
+			return
+		}
+
+		outData = decompressedPayload.Bytes()
+		defer c.bufferPool.Put(decompressedPayload)
+	}
+
+	if c.onDataFunc != nil {
+		temp := make([]byte, len(outData))
+		copy(temp, outData)
+		c.onDataFunc(temp)
+	}
 }
 
 func (c *Client) sendFrame(flags repo.FrameFlags, payload []byte) error {
@@ -34,6 +51,7 @@ func (c *Client) sendFrame(flags repo.FrameFlags, payload []byte) error {
 
 func (c *Client) listen() {
 	headerBuf := make([]byte, 5)
+	defer c.onDisconnectFunc()
 
 	for {
 		if _, err := io.ReadFull(c.conn, headerBuf); err != nil {
@@ -50,7 +68,7 @@ func (c *Client) listen() {
 		}
 
 		flags := repo.FrameFlags(headerBuf[4])
-		payload := c.bufferPool.Get() // Consider sync.Pool for large payloads
+		payload := c.bufferPool.Get()
 		if _, err := io.CopyN(payload, c.conn, int64(payloadSize)); err != nil {
 			if c.ctx.Err() == nil {
 				c.onErrorFunc(err)
