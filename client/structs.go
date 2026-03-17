@@ -23,6 +23,7 @@ type Client struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	bufferPool bytebufferpool.Pool
+	ready      chan struct{}
 
 	onDataFunc       func(payload []byte)
 	onErrorFunc      func(err error)

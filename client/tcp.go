@@ -32,7 +32,11 @@ func (c *Client) Connect() error {
 	_ = c.conn.SetDeadline(time.Now().Add(time.Duration(c.settings.Timeout) * time.Second))
 
 	if c.settings.UseTLS {
-		_ = c.Send(make([]byte, 0))
+		var flags repo.FrameFlags
+		flags |= repo.FlagTLS
+		if err := c.sendFrame(flags, make([]byte, 0)); err != nil {
+			return err
+		}
 
 		conf := &tls.Config{
 			InsecureSkipVerify: c.settings.TrustUnverifiedCerts,
@@ -47,12 +51,15 @@ func (c *Client) Connect() error {
 	}
 
 	c.onConnectFunc()
+	close(c.ready)
 
 	go c.listen()
 	return nil
 }
 
 func (c *Client) Send(payload []byte) error {
+	<-c.ready
+
 	var flags repo.FrameFlags
 
 	if c.settings.UseTLS {
