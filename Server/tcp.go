@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/lbarcl/fishnet-go/repo"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -64,9 +65,9 @@ func (s *Server) Accept() (string, error) {
 func (s *Server) Send(id string, payload []byte) error {
 	var flags FrameFlags
 	if len(payload) > int(s.settings.ZipThreshold) {
-		flags |= FlagGzip
+		flags |= repo.FlagGzip
 
-		gzipPayload, err := gzipFrame(payload, s.settings.MaxFrameBytes)
+		gzipPayload, err := repo.gzipFrame(payload, s.settings.MaxFrameBytes)
 		if err != nil {
 			return err
 		}

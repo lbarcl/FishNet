@@ -9,8 +9,6 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-type FrameFlags uint8
-
 type Connection struct {
 	con         net.Conn
 	wmu         sync.Mutex

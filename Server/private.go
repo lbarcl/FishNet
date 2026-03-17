@@ -7,10 +7,11 @@ import (
 	"io"
 	"time"
 
+	"github.com/lbarcl/fishnet-go/repo"
 	"github.com/valyala/bytebufferpool"
 )
 
-func (s *Server) handleFrame(id string, flags FrameFlags, payload *bytebufferpool.ByteBuffer) {
+func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebufferpool.ByteBuffer) {
 	defer s.bufferPool.Put(payload)
 
 	conn, err := s.getConnectionWrapper(id)
@@ -20,9 +21,9 @@ func (s *Server) handleFrame(id string, flags FrameFlags, payload *bytebufferpoo
 	}
 
 	if !conn.established {
-		if hasFlag(flags, FlagTLS) && s.settings.UseTLS {
+		if repo.HasFlag(flags, FlagTLS) && s.settings.UseTLS {
 			conn.con = tls.Server(conn.con, s.tlsCfg)
-		} else if hasFlag(flags, FlagTLS) {
+		} else if repo.HasFlag(flags, FlagTLS) {
 			s.onErrorFunc(id, fmt.Errorf("TLS is not enabled on server side. Closing the connection"))
 			s.RemoveConnection(id)
 			return
@@ -32,8 +33,8 @@ func (s *Server) handleFrame(id string, flags FrameFlags, payload *bytebufferpoo
 	}
 
 	outData := payload.Bytes()
-	if hasFlag(flags, FlagGzip) {
-		decompressedPayload, err := gunzipFrame(payload, s.settings.MaxDecompressedBytes, &s.bufferPool)
+	if repo.HasFlag(flags, FlagGzip) {
+		decompressedPayload, err := repo.GunzipFrame(payload, s.settings.MaxDecompressedBytes, &s.bufferPool)
 		if err != nil {
 			s.onErrorFunc(id, fmt.Errorf("error gunzipping frame: %v", err))
 			return
@@ -89,7 +90,7 @@ func (s *Server) handleConnection(id string) {
 			return
 		}
 
-		flags := FrameFlags(headerBuf[4])
+		flags := repo.FrameFlags(headerBuf[4])
 		payload := s.bufferPool.Get() // Consider sync.Pool for large payloads
 		if _, err := io.CopyN(payload, conn, int64(payloadSize)); err != nil {
 			if s.ctx.Err() == nil {
@@ -102,7 +103,7 @@ func (s *Server) handleConnection(id string) {
 	}
 }
 
-func (s *Server) sendFrame(id string, flags FrameFlags, payload []byte) error {
+func (s *Server) sendFrame(id string, flags repo.FrameFlags, payload []byte) error {
 	conn, err := s.GetConnection(id)
 	if err != nil {
 		return err
