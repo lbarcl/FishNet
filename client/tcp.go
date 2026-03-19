@@ -38,7 +38,9 @@ func (c *Client) Connect() error {
 			return err
 		}
 	} else {
-		c.onConnectFunc()
+		if c.onConnectFunc != nil {
+			c.onConnectFunc()
+		}
 		close(c.ready)
 	}
 

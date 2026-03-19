@@ -22,10 +22,15 @@ func (c *Client) handleFrame(flags repo.FrameFlags, payload *bytebufferpool.Byte
 		c.conn = tls.Client(c.conn, config)
 		err := c.conn.(*tls.Conn).Handshake()
 		if err != nil {
-			panic(err)
+			if c.onErrorFunc != nil {
+				c.onErrorFunc(err)
+			}
+			return
 		}
 
-		c.onConnectFunc()
+		if c.onConnectFunc != nil {
+			c.onConnectFunc()
+		}
 		close(c.ready)
 		return
 	}
@@ -34,7 +39,9 @@ func (c *Client) handleFrame(flags repo.FrameFlags, payload *bytebufferpool.Byte
 	if repo.HasFlag(flags, repo.FlagGzip) {
 		decompressedPayload, err := repo.GunzipFrame(payload, c.settings.MaxDecompressedBytes, &c.bufferPool)
 		if err != nil {
-			c.onErrorFunc(fmt.Errorf("error gunzipping frame: %v", err))
+			if c.onErrorFunc != nil {
+				c.onErrorFunc(fmt.Errorf("error gunzipping frame: %v", err))
+			}
 			return
 		}
 
@@ -69,19 +76,25 @@ func (c *Client) sendFrame(flags repo.FrameFlags, payload []byte) error {
 
 func (c *Client) listen() {
 	headerBuf := make([]byte, 5)
-	defer c.onDisconnectFunc()
+	if c.onDisconnectFunc != nil {
+		defer c.onDisconnectFunc()
+	}
 
 	for {
 		if _, err := io.ReadFull(c.conn, headerBuf); err != nil {
 			if c.ctx.Err() == nil {
-				c.onErrorFunc(err)
+				if c.onErrorFunc != nil {
+					c.onErrorFunc(err)
+				}
 			}
 			return
 		}
 
 		payloadSize := binary.BigEndian.Uint32(headerBuf[:4])
 		if payloadSize > c.settings.MaxFrameBytes {
-			c.onErrorFunc(fmt.Errorf("payload size %d exceeds max", payloadSize))
+			if c.onErrorFunc != nil {
+				c.onErrorFunc(fmt.Errorf("payload size %d exceeds max", payloadSize))
+			}
 			return
 		}
 
@@ -89,7 +102,9 @@ func (c *Client) listen() {
 		payload := c.bufferPool.Get()
 		if _, err := io.CopyN(payload, c.conn, int64(payloadSize)); err != nil {
 			if c.ctx.Err() == nil {
-				c.onErrorFunc(err)
+				if c.onErrorFunc != nil {
+					c.onErrorFunc(err)
+				}
 			}
 			return
 		}

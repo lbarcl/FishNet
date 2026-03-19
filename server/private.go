@@ -16,7 +16,9 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 
 	conn, err := s.getConnectionWrapper(id)
 	if err != nil {
-		s.onErrorFunc(id, err)
+		if s.onErrorFunc != nil {
+			s.onErrorFunc(id, err)
+		}
 		return
 	}
 
@@ -29,13 +31,17 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 				s.sendFrame(id, flags, make([]byte, 0))
 				conn.con = tls.Server(conn.con, s.tlsCfg)
 			} else {
-				s.onErrorFunc(id, fmt.Errorf("security policy violation: TLS required"))
+				if s.onErrorFunc != nil {
+					s.onErrorFunc(id, fmt.Errorf("security policy violation: TLS required"))
+				}
 				s.RemoveConnection(id)
 				return
 			}
 		} else {
 			if repo.HasFlag(flags, repo.FlagRequestTLS) {
-				s.onErrorFunc(id, fmt.Errorf("client requested TLS but server is plaintext-only"))
+				if s.onErrorFunc != nil {
+					s.onErrorFunc(id, fmt.Errorf("client requested TLS but server is plaintext-only"))
+				}
 				s.RemoveConnection(id)
 				return
 			}
@@ -48,7 +54,9 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 	if repo.HasFlag(flags, repo.FlagGzip) {
 		decompressedPayload, err := repo.GunzipFrame(payload, s.settings.MaxDecompressedBytes, &s.bufferPool)
 		if err != nil {
-			s.onErrorFunc(id, fmt.Errorf("error gunzipping frame: %v", err))
+			if s.onErrorFunc != nil {
+				s.onErrorFunc(id, fmt.Errorf("error gunzipping frame: %v", err))
+			}
 			return
 		}
 
@@ -67,7 +75,9 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 func (s *Server) handleConnection(id string) {
 	connWrap, err := s.getConnectionWrapper(id)
 	if err != nil {
-		s.onErrorFunc(id, err)
+		if s.onErrorFunc != nil {
+			s.onErrorFunc(id, err)
+		}
 		return
 	}
 
@@ -191,7 +201,9 @@ func (s *Server) setEstablished(id string) {
 	if s.settings.UseTLS {
 		if tc, ok := conn.con.(*tls.Conn); ok {
 			if err := tc.Handshake(); err != nil {
-				s.onErrorFunc(id, fmt.Errorf("TLS handshake failed: %v", err))
+				if s.onErrorFunc != nil {
+					s.onErrorFunc(id, fmt.Errorf("TLS handshake failed: %v", err))
+				}
 				s.RemoveConnection(id)
 				return
 			}
