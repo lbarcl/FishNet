@@ -13,18 +13,6 @@ import (
 func (c *Client) handleFrame(flags repo.FrameFlags, payload *bytebufferpool.ByteBuffer) {
 	defer c.bufferPool.Put(payload)
 
-	outData := payload.Bytes()
-	if repo.HasFlag(flags, repo.FlagGzip) {
-		decompressedPayload, err := repo.GunzipFrame(payload, c.settings.MaxDecompressedBytes, &c.bufferPool)
-		if err != nil {
-			c.onErrorFunc(fmt.Errorf("error gunzipping frame: %v", err))
-			return
-		}
-
-		outData = decompressedPayload.Bytes()
-		defer c.bufferPool.Put(decompressedPayload)
-	}
-
 	if c.settings.UseTLS && repo.HasFlag(flags, repo.FlagStartTLS) {
 
 		config := &tls.Config{
@@ -40,6 +28,18 @@ func (c *Client) handleFrame(flags repo.FrameFlags, payload *bytebufferpool.Byte
 		c.onConnectFunc()
 		close(c.ready)
 		return
+	}
+
+	outData := payload.Bytes()
+	if repo.HasFlag(flags, repo.FlagGzip) {
+		decompressedPayload, err := repo.GunzipFrame(payload, c.settings.MaxDecompressedBytes, &c.bufferPool)
+		if err != nil {
+			c.onErrorFunc(fmt.Errorf("error gunzipping frame: %v", err))
+			return
+		}
+
+		outData = decompressedPayload.Bytes()
+		defer c.bufferPool.Put(decompressedPayload)
 	}
 
 	if c.onDataFunc != nil {

@@ -49,16 +49,27 @@ func (s *Server) Accept() (string, error) {
 		return "", err
 	}
 
-	if s.onConnectFunc != nil {
-		s.onConnectFunc(id)
-	}
-
 	go s.handleConnection(id)
 	return id, nil
 }
 
 func (s *Server) Send(id string, payload []byte) error {
+	connWrapp, err := s.getConnectionWrapper(id)
+	if err != nil {
+		return err
+	}
+
 	var flags repo.FrameFlags
+
+	if repo.HasFlag(flags, repo.FlagStartTLS) {
+		if !connWrapp.established {
+			<-connWrapp.ready
+		}
+
+		if s.settings.UseTLS {
+			<-connWrapp.tlsHandShakeDone
+		}
+	}
 
 	if len(payload) > int(s.settings.ZipThreshold) {
 		flags |= repo.FlagGzip

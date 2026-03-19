@@ -23,6 +23,10 @@ func (s *Server) handleFrame(id string, flags repo.FrameFlags, payload *bytebuff
 	if !conn.established {
 		if s.settings.UseTLS {
 			if repo.HasFlag(flags, repo.FlagRequestTLS) {
+				var flags repo.FrameFlags
+				flags |= repo.FlagStartTLS
+
+				s.sendFrame(id, flags, make([]byte, 0))
 				conn.con = tls.Server(conn.con, s.tlsCfg)
 			} else {
 				s.onErrorFunc(id, fmt.Errorf("security policy violation: TLS required"))
@@ -66,7 +70,6 @@ func (s *Server) handleConnection(id string) {
 		s.onErrorFunc(id, err)
 		return
 	}
-	conn := connWrap.con
 
 	// Centralized cleanup
 	defer func() {
@@ -77,16 +80,24 @@ func (s *Server) handleConnection(id string) {
 	}()
 
 	setDeadline := func() {
-		if s.settings.Timeout != 0 && conn != nil {
-			_ = conn.SetReadDeadline(time.Now().Add(time.Duration(s.settings.Timeout) * time.Second))
+		if s.settings.Timeout != 0 && connWrap.con != nil {
+			_ = connWrap.con.SetReadDeadline(time.Now().Add(time.Duration(s.settings.Timeout) * time.Second))
 		}
 	}
 
 	headerBuf := make([]byte, 5) // Allocated once outside the loop
 	for {
+		if !connWrap.established && s.settings.UseTLS {
+			if tc, ok := connWrap.con.(*tls.Conn); ok {
+				if !tc.ConnectionState().HandshakeComplete {
+					continue
+				}
+			}
+		}
+
 		setDeadline()
 
-		if _, err := io.ReadFull(conn, headerBuf); err != nil {
+		if _, err := io.ReadFull(connWrap.con, headerBuf); err != nil {
 			if s.ctx.Err() == nil {
 				s.onErrorFunc(id, err)
 			}
@@ -101,7 +112,7 @@ func (s *Server) handleConnection(id string) {
 
 		flags := repo.FrameFlags(headerBuf[4])
 		payload := s.bufferPool.Get() // Consider sync.Pool for large payloads
-		if _, err := io.CopyN(payload, conn, int64(payloadSize)); err != nil {
+		if _, err := io.CopyN(payload, connWrap.con, int64(payloadSize)); err != nil {
 			if s.ctx.Err() == nil {
 				s.onErrorFunc(id, err)
 			}
@@ -118,15 +129,6 @@ func (s *Server) sendFrame(id string, flags repo.FrameFlags, payload []byte) err
 		return err
 	}
 
-	if repo.HasFlag(flags, repo.FlagStartTLS) {
-		if !connWrapp.established {
-			<-connWrapp.ready
-		}
-
-		if s.settings.UseTLS {
-			<-connWrapp.tlsHandShakeDone
-		}
-	}
 	if len(payload) > int(s.settings.MaxFrameBytes) {
 		return fmt.Errorf("payload size exceeds maximum allowed: %d", len(payload))
 	}
@@ -187,12 +189,6 @@ func (s *Server) setEstablished(id string) {
 
 	// 1. If TLS was wrapped in handleFrame, we must ensure the handshake completes
 	if s.settings.UseTLS {
-
-		var flags repo.FrameFlags
-		flags |= repo.FlagStartTLS
-
-		s.sendFrame(id, flags, make([]byte, 0))
-
 		if tc, ok := conn.con.(*tls.Conn); ok {
 			if err := tc.Handshake(); err != nil {
 				s.onErrorFunc(id, fmt.Errorf("TLS handshake failed: %v", err))
@@ -208,4 +204,8 @@ func (s *Server) setEstablished(id string) {
 
 	conn.established = true
 	close(conn.ready) // Unblock the 'ready' gate
+
+	if s.onConnectFunc != nil {
+		s.onConnectFunc(id)
+	}
 }

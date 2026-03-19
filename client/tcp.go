@@ -16,6 +16,7 @@ func NewClient(settings Settings) (*Client, error) {
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	client.bufferPool = bytebufferpool.Pool{}
+	client.ready = make(chan struct{})
 
 	return client, nil
 }
